@@ -1,0 +1,37 @@
+{
+    "Daniel": {
+        "senha": "20262026",
+        "funcao": "Adiministrador(a)"
+    },
+    "Bruno": {
+        "senha": "20202020",
+        "funcao": "Usuario"
+    },
+    "Alice": {
+        "senha": "10101010",
+        "funcao": "Adiministrador(a)"
+    },
+    "marcos": {
+        "senha": "232323",
+        "funcao": "Adiministrador(a)"
+    },
+    "dada": {
+        "senha": "adadad",
+        "funcao": "Adiministrador(a)"
+    },
+    "junior": {
+        "senha": "qoqoqo",
+        "funcao": "Adiministrador(a)",
+        "adm": "ADMIN"
+    },
+    "pedro": {
+        "senha": "25252525",
+        "funcao": "Usuario",
+        "adm": "ADMIN"
+    },
+    "pastor joao": {
+        "senha": "101010",
+        "funcao": "Usuario",
+        "adm": "ADMIN"
+    }
+}
