@@ -29,7 +29,7 @@ def show_register_screen(root):
 
 # Campo de Função (OptionMenu para Hierarquia)
     funcao_var = ctk.StringVar(value="Nível de Acesso") # Texto inicial dentro do botão
-    reg_func = ctk.CTkOptionMenu(frame, values=["Adiministrador(a)", "Usuario" ], 
+    reg_func = ctk.CTkOptionMenu(frame, values=["Administrador", "Usuario" ], 
         variable=funcao_var, width=170, height=30, fg_color="#555",
         button_color="#1a1a1a", 
         button_hover_color="#555",
@@ -95,7 +95,7 @@ def show_register_screen(root):
             data = json.load(f)
         
 
-        data[user] = {"senha": pw, "funcao": func, "adm": adm } #>>>>> apos ter todos os dados preciso colocar o nome do adm
+        data[user] = {"senha": pw, "funcao": func} #>>>>> apos ter todos os dados preciso colocar o nome do adm
         
         with open(root.db_file, "w") as f:
             json.dump(data, f, indent=4)

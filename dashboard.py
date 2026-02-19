@@ -42,11 +42,11 @@ class DashboardFrame(ctk.CTkFrame):
 
         self.tree.heading("Data", text="DATA")
         self.tree.column("Data", width=110, anchor="center")
-        self.tree.heading("Nome", text="NOME DO MEMBRO")
+        self.tree.heading("Nome", text="NOME")
         self.tree.column("Nome", width=200, anchor="w")
         self.tree.heading("Dízimo", text="DÍZIMO")
         self.tree.column("Dízimo", width=120, anchor="center")
-        self.tree.heading("Oferta", text="OFERTA")
+        self.tree.heading("Oferta", text="OUTROS VALORES")
         self.tree.column("Oferta", width=120, anchor="center")
 
         scrollbar = ctk.CTkScrollbar(self.tree_frame, orientation="vertical", command=self.tree.yview)
@@ -114,7 +114,7 @@ class DashboardFrame(ctk.CTkFrame):
 
         self.criar_card("Total de Cadastros", total_registros, "#2eb8ac").pack(side="left", padx=10, expand=True, fill="both")
         self.criar_card("Total Dízimos", soma_dizimos, "#1f538d").pack(side="left", padx=5, expand=True, fill="both")
-        self.criar_card("Total Ofertas", soma_ofertas, "#a2d149").pack(side="left", padx=5, expand=True, fill="both")
+        self.criar_card("Outros Valores", soma_ofertas, "#a2d149").pack(side="left", padx=5, expand=True, fill="both")
         self.criar_card("Volume Financeiro", soma_valores, "#f09644").pack(side="left", padx=10, expand=True, fill="both")
         
         
