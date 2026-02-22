@@ -1,123 +1,207 @@
 import customtkinter as ctk
 import pandas as pd
 import os
-from tkinter import ttk
-from datetime import datetime
+from tkinter import messagebox, ttk
 
 class DashboardFrame(ctk.CTkFrame):
     def __init__(self, parent):
         super().__init__(parent, corner_radius=15, fg_color="transparent")
         
-        # Título
-        self.lbl_dash = ctk.CTkLabel(self, text="Dashboard Administrativo", 
-                                     font=ctk.CTkFont(size=24, weight="bold"))
-        self.lbl_dash.pack(pady=(0, 20), anchor="w")
+        self.df_completo = pd.DataFrame()
 
-        # Container para os Cards
+        # --- CONFIGURAÇÃO DE ESTILO MODERNO (TREEVIEW) ---
+        self.style = ttk.Style()
+        self.style.theme_use("default")
+        
+        self.style.configure("Treeview",
+            background="#2b2b2b",
+            foreground="white",
+            fieldbackground="#2b2b2b",
+            borderwidth=0,
+            rowheight=35,
+            font=("Segoe UI", 11)
+        )
+        
+        self.style.configure("Treeview.Heading",
+            background="#333333",
+            foreground="white",
+            relief="flat",
+            font=("Segoe UI", 11, "bold")
+        )
+        self.style.map("Treeview.Heading", background=[('active', "#404040")])
+
+        # Correção da cor de seleção: Fundo azul e texto branco ao clicar
+        self.style.map("Treeview", 
+            background=[('selected', '#1f538d')],
+            foreground=[('selected', 'white')]
+        )
+
+        # --- CABEÇALHO (TÍTULO E PESQUISA NA MESMA LINHA) ---
+        self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.header_frame.pack(fill="x", pady=(0, 20))
+
+        # Título
+        self.lbl_dash = ctk.CTkLabel(
+            self.header_frame, 
+            text="Dashboard Administrativo", 
+            font=ctk.CTkFont(size=24, weight="bold")
+        )
+        self.lbl_dash.pack(side="left", anchor="w")
+
+        # Container de busca (Lupa + Entry)
+        self.search_container = ctk.CTkFrame(self.header_frame, fg_color="transparent")
+        self.search_container.pack(side="right", anchor="e")
+
+        self.entry_busca = ctk.CTkEntry(
+            self.search_container, 
+            placeholder_text="Pesquisar...", 
+            width=350,
+            height=35
+        )
+        self.entry_busca.pack(side="left", padx=(0, 5))
+        
+        # Bind para a tecla Enter
+        self.entry_busca.bind("<Return>", lambda e: self.filtrar_tabela())
+
+        # Botão Lupa
+        self.btn_lupa = ctk.CTkButton(
+            self.search_container,
+            text="🔍",
+            width=40,
+            height=35,
+            fg_color="#333333",
+            hover_color="#404040",
+            command=self.filtrar_tabela
+        )
+        self.btn_lupa.pack(side="left")
+
+        # --- RESTANTE DA ESTRUTURA ---
         self.cards_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.cards_frame.pack(fill="x", pady=10)
 
-        # --- Tabela de Últimos Lançamentos ---
-        self.lbl_recents = ctk.CTkLabel(self, text="Últimos Lançamentos Registrados", 
-                                        font=ctk.CTkFont(size=20, weight="bold"))
-        self.lbl_recents.pack(pady=(20, 10), anchor="w")
+        self.lbl_recents = ctk.CTkLabel(self, text="Lançamentos Registrados", 
+                                        font=ctk.CTkFont(size=18, weight="bold"))
+        self.lbl_recents.pack(pady=(20, 5), anchor="w")
 
-        # Configuração de Estilo
-        style = ttk.Style()
-        style.theme_use("clam")
+        # --- TABELA ---
+        columns = ("Data", "Nome", "Dízimo", "Oferta", "Observações", "Responsável")
         
-        bg_color = "#c9c9c9"      # Fundo das linhas
-        header_color = "#1f538d"  # Cor do cabeçalho
-        text_color = "#474747"      # Cor do texto
+        self.tree_frame = ctk.CTkFrame(self, corner_radius=10, fg_color="#2b2b2b")
+        self.tree_frame.pack(fill="both", expand=True, padx=2, pady=2)
 
-        # Criando a Tabela
-        self.tree_frame = ctk.CTkFrame(self, fg_color=bg_color, corner_radius=10)
-        self.tree_frame.pack(fill="both", expand=True, padx=2, pady=5)
-
-        columns = ("Data", "Nome", "Dízimo", "Oferta")
         self.tree = ttk.Treeview(self.tree_frame, columns=columns, show="headings", selectmode="browse")
         
-        # Isso força a cor na linha do cabeçlho da tabela
-        self.tree.tag_configure('row_style', background=bg_color, foreground=text_color, font=("Segoe UI", 11))
+        self.tree.tag_configure('oddrow', background="#b9b9b9")
+        self.tree.tag_configure('evenrow', background="#b1b1b1")
 
-        self.tree.heading("Data", text="DATA")
-        self.tree.column("Data", width=110, anchor="center")
-        self.tree.heading("Nome", text="NOME")
-        self.tree.column("Nome", width=200, anchor="w")
-        self.tree.heading("Dízimo", text="DÍZIMO")
-        self.tree.column("Dízimo", width=120, anchor="center")
-        self.tree.heading("Oferta", text="OUTROS VALORES")
-        self.tree.column("Oferta", width=120, anchor="center")
+        for col in columns:
+            self.tree.heading(col, text=col.upper())
+            if col in ["Dízimo", "Oferta"]:
+                self.tree.column(col, width=100, anchor="center")
+            elif col == "Data":
+                self.tree.column(col, width=100, anchor="center")
+            else:
+                self.tree.column(col, width=150, anchor="w")
 
+        self.tree.pack(side="left", fill="both", expand=True)
+        
         scrollbar = ctk.CTkScrollbar(self.tree_frame, orientation="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
-        
-        self.tree.pack(side="left", fill="both", expand=True, padx=(10,0), pady=10)
-        scrollbar.pack(side="right", fill="y", padx=(0,10), pady=10)
+        scrollbar.pack(side="right", fill="y")
 
         self.atualizar_dados()
 
-    def criar_card(self, titulo, valor, cor_borda):
-        card = ctk.CTkFrame(self.cards_frame, height=120, border_width=2, border_color=cor_borda)
-        ctk.CTkLabel(card, text=titulo, font=ctk.CTkFont(size=14)).pack(pady=(15, 0))
-        ctk.CTkLabel(card, text=valor, font=ctk.CTkFont(size=22, weight="bold")).pack(pady=(5, 15))
-        return card
+    def limpar_valor(self, v):
+        if v is None or str(v).lower() == 'nan' or str(v).strip() == '': return 0.0
+        try:
+            s = str(v).replace('R$', '').replace('.', '').replace(',', '.').strip()
+            return float(s)
+        except: return 0.0
 
     def atualizar_dados(self):
-        filename = 'base_tarefas.xlsx'
-        for widget in self.cards_frame.winfo_children(): widget.destroy()
-        for item in self.tree.get_children(): self.tree.delete(item)
+        file_tasks = 'data/base_dizimos.xlsx'
+        file_offers = 'data/base_ofertas.xlsx'
+        dados_misturados = []
 
-        total_registros = "0"
-        soma_valores = "R$ 0,00"
-
-        if os.path.exists(filename):
+        if os.path.exists(file_tasks):
             try:
-                df = pd.read_excel(filename)
-                df.columns = [str(c).strip() for c in df.columns]
-                total_registros = str(len(df))
+                df_t = pd.read_excel(file_tasks)
+                for _, row in df_t.iterrows():
+                    vd = self.limpar_valor(row.get('Dizimos', 0))
+                    vo = self.limpar_valor(row.get('Ofertas', 0))
+                    dados_misturados.append({
+                        'Data': str(row.get('Data_Criacao', '-')),
+                        'Nome': str(row.get('Nome', '-')),
+                        'Dizimo_Val': vd,
+                        'Oferta_Val': vo,
+                        'Obs': str(row.get('Outros', '')).replace('nan', ''),
+                        'Resp': str(row.get('Responsavel', '')).replace('nan', ''),
+                        'Timestamp': pd.to_datetime(row.get('Data_Criacao'), dayfirst=True, errors='coerce')
+                    })
+            except Exception as e: print(f"Erro tarefas: {e}")
 
-                def limpar_coluna(nome_coluna):
-                    if nome_coluna in df.columns:
-                        serie = df[nome_coluna].astype(str).str.replace('R$', '', regex=False)
-                        serie = serie.str.replace('.', '', regex=False).str.replace(',', '.', regex=False).str.strip()
-                        return pd.to_numeric(serie, errors='coerce').fillna(0)
-                    return pd.Series([0])
+        if os.path.exists(file_offers):
+            try:
+                df_o = pd.read_excel(file_offers)
+                for _, row in df_o.iterrows():
+                    val = self.limpar_valor(row.get('Valor', 0))
+                    dados_misturados.append({
+                        'Data': str(row.get('Data', '-')),
+                        'Nome': f"CULTO: {row.get('Dia_Culto', '-')}",
+                        'Dizimo_Val': 0.0,
+                        'Oferta_Val': val,
+                        'Obs': str(row.get('Observacao', '')).replace('nan', ''),
+                        'Resp': str(row.get('Responsavel', '')).replace('nan', ''), 
+                        'Timestamp': pd.to_datetime(row.get('Data'), dayfirst=True, errors='coerce')
+                    })
+            except Exception as e: print(f"Erro ofertas: {e}")
 
-                col_dizimos = limpar_coluna('Dizimos')
-                col_ofertas = limpar_coluna('Ofertas')
-                total_diz_soma = col_dizimos.sum()
-                total_ofe_soma = col_ofertas.sum()
-                total_financeiro = col_dizimos.sum() + col_ofertas.sum()
+        if dados_misturados:
+            self.df_completo = pd.DataFrame(dados_misturados).sort_values(by='Timestamp', ascending=False)
+            self.filtrar_tabela()
 
-                soma_dizimos = f"R$ {total_diz_soma:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                soma_ofertas = f"R$ {total_ofe_soma:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                soma_valores = f"R$ {total_financeiro:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    def filtrar_tabela(self):
+        termo = self.entry_busca.get().lower()
+        for item in self.tree.get_children(): self.tree.delete(item)
+        
+        if self.df_completo.empty: return
+
+        mask = (
+            self.df_completo['Nome'].astype(str).str.lower().str.contains(termo) |
+            self.df_completo['Data'].astype(str).str.lower().str.contains(termo) |
+            self.df_completo['Obs'].astype(str).str.lower().str.contains(termo) |
+            self.df_completo['Resp'].astype(str).str.lower().str.contains(termo)
+        )
+        df_filtrado = self.df_completo[mask]
+
+        for i, (_, row) in enumerate(df_filtrado.iterrows()):
+            d_txt = f"R$ {row['Dizimo_Val']:,.2f}".replace('.', 'X').replace(',', '.').replace('X', ',') if row['Dizimo_Val'] > 0 else "---"
+            o_txt = f"R$ {row['Oferta_Val']:,.2f}".replace('.', 'X').replace(',', '.').replace('X', ',') if row['Oferta_Val'] > 0 else "---"
             
-                recent_data = df.tail(10).iloc[::-1]
-
-                for _, row in recent_data.iterrows():
-                    # Formatação interna para garantir floats
-                    v_diz = float(str(row.get('Dizimos', 0)).replace(',','.')) if row.get('Dizimos') else 0.0
-                    v_ofe = float(str(row.get('Ofertas', 0)).replace(',','.')) if row.get('Ofertas') else 0.0
-
-                    # AQUI: Inserimos com a TAG 'row_style'
-                    self.tree.insert("", "end", values=(
-                        row.get('Data_Criacao', '-'),
-                        row.get('Nome', '-'),
-                        f"R$ {v_diz:,.2f}".replace('.', ','),
-                        f"R$ {v_ofe:,.2f}".replace('.', ',')
-                    ), tags=('row_style',)) # <--- O SEGREDO ESTÁ AQUI
-
-            except Exception as e:
-                print(f"Erro ao ler Excel: {e}")
-
-        self.criar_card("Total de Cadastros", total_registros, "#2eb8ac").pack(side="left", padx=10, expand=True, fill="both")
-        self.criar_card("Total Dízimos", soma_dizimos, "#1f538d").pack(side="left", padx=5, expand=True, fill="both")
-        self.criar_card("Outros Valores", soma_ofertas, "#a2d149").pack(side="left", padx=5, expand=True, fill="both")
-        self.criar_card("Volume Financeiro", soma_valores, "#f09644").pack(side="left", padx=10, expand=True, fill="both")
+            tag = 'evenrow' if i % 2 == 0 else 'oddrow'
+            
+            self.tree.insert("", "end", values=(
+                row['Data'], row['Nome'], d_txt, o_txt, row['Obs'], row['Resp']
+            ), tags=(tag,))
         
+        self.atualizar_cards(df_filtrado)
+
+    def criar_card(self, titulo, valor, cor):
+        card = ctk.CTkFrame(self.cards_frame, height=120, border_width=1, border_color=cor, fg_color="#2b2b2b")
+        ctk.CTkLabel(card, text=titulo, font=ctk.CTkFont(size=13), text_color="#aaaaaa").pack(pady=(15, 0))
+        ctk.CTkLabel(card, text=valor, font=ctk.CTkFont(size=22, weight="bold"), text_color=cor).pack(pady=(5, 15))
+        return card
+
+    def atualizar_cards(self, df):
+        for widget in self.cards_frame.winfo_children(): widget.destroy()
         
+        total_d = df['Dizimo_Val'].sum()
+        total_o = df['Oferta_Val'].sum()
+        
+        def br_money(v):
+            return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-
-        "#1f538d" "#a2d149""#f09644"
+        self.criar_card("Lançamentos", str(len(df)), "#50fa7b").pack(side="left", padx=5, expand=True, fill="both")
+        self.criar_card("Total Dízimos", br_money(total_d), "#8be9fd").pack(side="left", padx=5, expand=True, fill="both")
+        self.criar_card("Total Ofertas", br_money(total_o), "#f1fa8c").pack(side="left", padx=5, expand=True, fill="both")
+        self.criar_card("Volume Total", br_money(total_d + total_o), "#ff79c6").pack(side="left", padx=5, expand=True, fill="both")

@@ -2,7 +2,7 @@ import pandas as pd
 from datetime import datetime
 import os
 
-LOG_FILE = 'logs_sistema.csv'
+LOG_FILE = 'data/logs_sistema.csv'
 
 def registrar_acao(usuario, perfil, acao, data_logout=""):
     """
@@ -26,7 +26,7 @@ def registrar_acao(usuario, perfil, acao, data_logout=""):
     except PermissionError:
         print("Erro: O arquivo de log está aberto por outro programa.")
 
-def buscar_ultimos_logs(filtro="", quantidade=10):
+def buscar_ultimos_logs(filtro="", quantidade=30):
     """Retorna os logs filtrados de forma otimizada"""
     if not os.path.exists(LOG_FILE):
         return []

@@ -3,7 +3,7 @@ from datetime import datetime
 import os
 import json
 
-RESET_LOG_FILE = 'resets_senha.csv'
+RESET_LOG_FILE = 'data/resets_senha.csv'
 
 def registrar_reset(usuario, adm_autorizador):
     """Registra o evento de redefinição de senha em um CSV próprio"""

@@ -18,7 +18,7 @@ class AdplatinaSystem(ctk.CTk):
         self.resizable(False, False)
 
         # Arquivo de dados
-        self.db_file = "users_db.json"
+        self.db_file = "data/users_db.json"
         self._ensure_db_exists()
 
         # Container Principal

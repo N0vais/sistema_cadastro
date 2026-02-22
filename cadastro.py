@@ -1,5 +1,11 @@
+
+from datetime import datetime
+import re
 import customtkinter as ctk
 import json
+import csv
+import os
+
 
     # --- TELA DE CADASTRO ---
 def show_register_screen(root):
@@ -19,12 +25,12 @@ def show_register_screen(root):
         
 # Senha
     reg_pass = ctk.CTkEntry(frame, placeholder_text="Senha (mín. 6)", 
-        show="•", width=350, height=50, border_color="#333333", fg_color="#1a1a1a", font=("Segoe UI", 20))
+        show="*", width=350, height=50, border_color="#333333", fg_color="#1a1a1a", font=("Segoe UI", 20))
     reg_pass.pack(pady=8)
 
 # Confirme Senha
     reg_pass_confirm = ctk.CTkEntry(frame, placeholder_text="Confirmar Senha", 
-        show="•", width=350, height=50, border_color="#333333", fg_color="#1a1a1a", font=("Segoe UI", 20))
+        show="*", width=350, height=50, border_color="#333333", fg_color="#1a1a1a", font=("Segoe UI", 20))
     reg_pass_confirm.pack(pady=8)
 
 # Campo de Função (OptionMenu para Hierarquia)
@@ -48,61 +54,102 @@ def show_register_screen(root):
     error_label = ctk.CTkLabel(frame, text="", font=("Segoe UI", 18))
     error_label.pack(pady=2)
 
-    def salvar_cadastro():
-        error_label.configure(text="")
-        reg_user.configure(border_color="#949494", border_width=1)
-        reg_pass.configure(border_color="#949494", border_width=1)
-        reg_pass_confirm.configure(border_color="#949494", border_width=1)
-        reg_administrador.configure(border_color="#949494", border_width=1)
+     
 
-        user = reg_user.get()
+    def salvar_cadastro():
+        # 1. Reset visual dos campos
+        error_label.configure(text="")
+        for widget in [reg_user, reg_pass, reg_pass_confirm, reg_administrador]:
+            widget.configure(border_color="#949494", border_width=1)
+
+        # 2. Coleta de dados dos inputs
+        user = reg_user.get().strip() # .strip() remove espaços vazios acidentais
         func = funcao_var.get()
         pw = reg_pass.get()
         pwc = reg_pass_confirm.get()
-        adm = reg_administrador.get()
+        senha_adm_digitada = reg_administrador.get()
 
-        if not user:
-            error_label.configure(text="Usuário vazio!", text_color="#FF4B4B")
-            reg_user.configure(border_color="#FF4B4B", border_width=1)
+            # --- NOVA VALIDAÇÃO DE COMPLEXIDADE DE SENHA ---
+        padrao_senha = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[#!@$%^&*]).{6,}$"
+
+        # 3. Validações de preenchimento básico
+        if not all([user, pw, senha_adm_digitada]):
+            error_label.configure(text="Preencha todos os campos!", text_color="#FF4B4B")
+            return
+        if not re.match(padrao_senha, pw):
+            error_label.configure(
+                text="Senha fraca! Use: Maiúscula, Minúscula, Número e #", 
+                text_color="#FF4B4B")
+            reg_pass.configure(border_color="#FF4B4B")
             return
 
-        if len(pw) < 6:
-            error_label.configure(text="Senha muito curta!", text_color="#FF4B4B")
-            reg_pass.configure(border_color="#FF4B4B", border_width=1)
-            return
         if pw != pwc:
             error_label.configure(text="Senhas não conferem!", text_color="#FF4B4B")
             reg_pass_confirm.configure(border_color="#FF4B4B", border_width=1)
             return
-        
-        if func == "Nível de Acesso":
-            error_label.configure(text="Selecione um nível de acesso!", text_color="#FF4B4B")
-            return
-        
-        if not adm :
-            error_label.configure(text="Senha do adiministrador obrigatória", text_color="#FF4B4B")
-            reg_administrador.configure(border_color="#FF4B4B", border_width=1)
-            return
-        
-        if adm != "ADMIN":
-            error_label.configure(text="Senha invalida", text_color="#FF4B4B")
-            reg_administrador.configure(border_color="#FF4B4B", border_width=1)
-            return
-        
 
-# Salvar no JSON
-        with open(root.db_file, "r") as f:
-            data = json.load(f)
-        
+        # 4. Processamento de Dados (JSON)
+        try:
+            with open(root.db_file, "r", encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # --- NOVA VERIFICAÇÃO: USUÁRIO JÁ EXISTE? ---
+            if user in data:
+                error_label.configure(text="Usuário já cadastrado!", text_color="#FF4B4B")
+                reg_user.configure(border_color="#FF4B4B", border_width=1)
+                return
 
-        data[user] = {"senha": pw, "funcao": func} #>>>>> apos ter todos os dados preciso colocar o nome do adm
-        
-        with open(root.db_file, "w") as f:
-            json.dump(data, f, indent=4)
-        
-        error_label.configure(text="Cadastro realizado!", text_color="#00FF88")
-        root.after(1000, root.show_login_screen)
+            # 5. Validação do Administrador
+            nome_adm_autorizador = None
+            funcao_adm_autorizador = None
+            
+            for nome_chave, info in data.items():
+                if info.get("funcao") == "Administrador" and info.get("senha") == senha_adm_digitada:
+                    nome_adm_autorizador = nome_chave
+                    funcao_adm_autorizador = info.get("funcao")
+                    break
+            
+            if not nome_adm_autorizador:
+                error_label.configure(text="Senha de administrador inválida!", text_color="#FF4B4B")
+                reg_administrador.configure(border_color="#FF4B4B", border_width=1)
+                return
 
+            # 6. Criar registro e salvar no JSON
+            agora = datetime.now()
+            data_f = agora.strftime("%d/%m/%Y")
+            hora_f = agora.strftime("%H:%M:%S")
+
+            data[user] = {
+                "senha": pw, 
+                "funcao": func, 
+                "adm": nome_adm_autorizador, 
+                "data_criacao": data_f,
+                "hora_criacao": hora_f
+            }
+            
+            with open(root.db_file, "w", encoding='utf-8') as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+
+            # 7. Sistema de Logs (CSV)
+            log_path = 'data/logs_sistema.csv'
+            os.makedirs(os.path.dirname(log_path), exist_ok=True)
+            
+            mensagem_log = f"{funcao_adm_autorizador} '{nome_adm_autorizador}' cadastrou o usuario '{user}' como '{func}'"
+            arquivo_existe = os.path.exists(log_path)
+            
+            with open(log_path, 'a', newline='', encoding='utf-8') as f_log:
+                escritor = csv.writer(f_log)
+                if not arquivo_existe:
+                    escritor.writerow(["Data", "Hora", "Evento"])
+                escritor.writerow([data_f, hora_f, mensagem_log])
+
+            # 8. Finalização com sucesso
+            error_label.configure(text="Cadastro realizado com sucesso!", text_color="#00FF88")
+            root.after(1000, root.show_login_screen)
+
+        except Exception as e:
+            error_label.configure(text=f"Erro: {e}", text_color="#FF4B4B")
+    
 # Botao cadastrar
     ctk.CTkButton(frame, text="REGISTRAR",
         corner_radius=10, fg_color="#00D2FF", hover_color="#0095B3",

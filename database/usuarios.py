@@ -2,7 +2,7 @@ import json
 import os
 
 def realizar_login(usuario_digitado, senha_digitada):
-    db_file = "self.db_file" # O caminho que você definiu no self.db_file
+    db_file = "data/self.db_file" # O caminho que você definiu no self.db_file
 
     # 1. Verificar se o arquivo existe para não dar erro de "File Not Found"
     if not os.path.exists(db_file):
