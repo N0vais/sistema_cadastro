@@ -151,7 +151,7 @@ class SistemaTarefas(ctk.CTk):
             self.btn_logs.pack_forget()
             self.btn_imprimir_sidebar.configure(state="disabled")
             self.btn_imprimir_sidebar.pack_forget()
-
+    # tela de cadastro de dizimo
     def setup_main_frame(self):
         frame = ctk.CTkFrame(self, corner_radius=15)
         ctk.CTkLabel(frame, text="Cadastrar Dizimos", font=("Segoe UI", 24, "bold")).pack(pady=20, padx=30, anchor="w")
@@ -339,7 +339,8 @@ class SistemaTarefas(ctk.CTk):
         if not hasattr(self, 'ofertas_frame'):
             self.setup_ofertas_frame()
         self.mostrar_tela(self.ofertas_frame)
-    # Tela de ofrtas
+    
+    # Tela de ofertas
     def setup_ofertas_frame(self):
         """Frame de Cadastro de Ofertas com Validação de Dia"""
         self.ofertas_frame = ctk.CTkFrame(self, corner_radius=15)
@@ -362,7 +363,7 @@ class SistemaTarefas(ctk.CTk):
         self.combo_dia.set("--- CLIQUE PARA SELECIONAR ---") # Texto de instrução
 
         self.entry_oferta_val = self.create_input_valores(self.ofertas_frame, "Valor Arrecadado R$")
-        self.entry_oferta_val_saida = self.create_input_valores(self.ofertas_frame, "Valor de saida R$") #este campo e para valores de saida
+        self.entry_oferta_val_saida = self.create_input_valores(self.ofertas_frame, "Valor de saida R$") # Este campo e para valores de saida
         self.entry_obs_oferta = self.create_input_no_frame(self.ofertas_frame, "Observações Adicionais")
 
         # Botão Salvar
@@ -370,10 +371,12 @@ class SistemaTarefas(ctk.CTk):
                     hover_color="#248f85", font=("Segoe UI", 18, "bold"), height=50,
                     command=self.salvar_oferta_excel)
         btn_salvar.pack(fill="x", padx=30, pady=20)
-        
+    
+    # Função para salvar no exel
     def salvar_oferta_excel(self):
         dia_selecionado = self.combo_dia.get()
         valor_raw = self.entry_oferta_val.get().strip()
+        valor_raw_saida = self.entry_oferta_val_saida.get().strip()
 
         # Validações básicas...
         if dia_selecionado == "--- CLIQUE PARA SELECIONAR ---" or not valor_raw:
@@ -383,9 +386,11 @@ class SistemaTarefas(ctk.CTk):
         try:
             # 1. Trata a entrada: converte para float independente de usar . ou ,
             valor_num = float(valor_raw.replace(',', '.'))
+            valor_num_saida = float(valor_raw_saida.replace(',', '.'))
             
             # 2. Formata para String padrão BR (123,45)
             valor_br = f"{valor_num:.2f}".replace('.', ',')
+            valor_saida = f"{valor_num_saida:.2f}".replace('.', ',')
 
             data_agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             
@@ -395,6 +400,7 @@ class SistemaTarefas(ctk.CTk):
                 'Data': data_agora,
                 'Dia_Culto': dia_selecionado,
                 'Valor': valor_br, # Salva formatado no Excel
+                'Valor_Saida':valor_saida,
                 'Observacao': self.entry_obs_oferta.get().strip(),
                 'Responsavel': self.user
             }])
@@ -414,7 +420,7 @@ class SistemaTarefas(ctk.CTk):
             registrar_acao(
                 usuario=self.user, 
                 perfil=self.funcao, 
-                acao=f"Registrou Oferta - Culto: {dia_selecionado} - Valor: R$ {valor_br}"
+                acao=f"Registrou Oferta : {dia_selecionado} - Valor: R$ {valor_br} - Retirada de R$ {valor_saida}"
             )
 
             messagebox.showinfo("Sucesso", f"Oferta de {dia_selecionado} registrada!")
@@ -422,6 +428,7 @@ class SistemaTarefas(ctk.CTk):
             # Limpeza
             self.combo_dia.set("--- CLIQUE PARA SELECIONAR ---")
             self.entry_oferta_val.delete(0, 'end')
+            self.entry_oferta_val_saida.delete(0, 'end')
             self.entry_obs_oferta.delete(0, 'end')
 
         except ValueError:
@@ -486,7 +493,7 @@ class SistemaTarefas(ctk.CTk):
         preview_frame = ctk.CTkFrame(self.janela_relatorio)
         preview_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
-        cols = ("Data", "Nome", "Dízimo", "Oferta", "Responsável")
+        cols = ("Data", "Nome", "Dízimo", "Oferta","Saida", "Responsável")
         preview_tree = ttk.Treeview(preview_frame, columns=cols, show="headings")
         for col in cols:
             preview_tree.heading(col, text=col)
@@ -524,7 +531,8 @@ class SistemaTarefas(ctk.CTk):
                 for _, row in df_filtrado.iterrows():
                     v_d = f"R$ {row['Dizimo_Val']:,.2f}".replace('.', ',') if row['Dizimo_Val'] > 0 else "---"
                     v_o = f"R$ {row['Oferta_Val']:,.2f}".replace('.', ',') if row['Oferta_Val'] > 0 else "---"
-                    preview_tree.insert("", "end", values=(row['Data'], row['Nome'], v_d, v_o, row['Resp']))
+                    v_s = f"R$ {row['Oferta_Val_saida']:,.2f}".replace('.', ',') if row['Oferta_Val_saida'] > 0 else "---"
+                    preview_tree.insert("", "end", values=(row['Data'], row['Nome'], v_d, v_o, v_s, row['Resp']))
 
                 lbl_info.configure(text=f"Registros encontrados: {len(df_filtrado)}", text_color="#50fa7b")
             except:
@@ -567,38 +575,47 @@ class SistemaTarefas(ctk.CTk):
                     # 2. CARDS DE RESUMO (Destaque)
                     total_diz = self.dados_filtrados_backup['Dizimo_Val'].sum()
                     total_ofe = self.dados_filtrados_backup['Oferta_Val'].sum()
+                    total_ofe_saida = self.dados_filtrados_backup['Oferta_Val_saida'].sum()
+                    total = total_diz + total_ofe - total_ofe_saida
                     
                     resumo_data = [
                         [Paragraph(f"<b>TOTAL DÍZIMOS</b><br/>R$ {total_diz:,.2f}".replace('.',','), estilo_card),
-                         Paragraph(f"<b>TOTAL OFERTAS</b><br/>R$ {total_ofe:,.2f}".replace('.',','), estilo_card)]
+                         Paragraph(f"<b>TOTAL OFERTAS</b><br/>R$ {total_ofe:,.2f}".replace('.',','), estilo_card)],
+
+                         [Paragraph(f"<b>TOTAL SAIDAS</b><br/>R$ {total_ofe_saida:,.2f}".replace('.',','), estilo_card),
+                         Paragraph(f"<b>TOTAL </b><br/>R$ {total:,.2f}".replace('.',','), estilo_card)]
                     ]
-                    resumo_tab = Table(resumo_data, colWidths=[250, 250], rowHeights=40)
+                    resumo_tab = Table(resumo_data, colWidths=[250, 250], rowHeights=35)
                     resumo_tab.setStyle(TableStyle([
                         ('BACKGROUND', (0, 0), (0, 0), colors.HexColor("#a0a0a0")),
                         ('BACKGROUND', (1, 0), (1, 0), colors.HexColor("#929292")),
+                        
+                        ('BACKGROUND', (0, 1), (0, 1), colors.HexColor("#929292")), 
+                        ('BACKGROUND', (1, 1), (1, 1), colors.HexColor("#a0a0a0")), 
                         ('BOX', (0,0), (-1,-1), 2, colors.white),
                         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
                         ('LEFTPADDING', (0,0), (-1,-1), 15),
                     ]))
                     elementos.append(resumo_tab)
-                    elementos.append(Spacer(1, 25))
+                    elementos.append(Spacer(1, 20))
 
                     # 3. TABELA DE DADOS (Estilo Moderno)
-                    dados_tabela = [["DATA", "MEMBRO / DESCRIÇÃO", "DÍZIMO", "OFERTA", "RESPONSÁVEL"]]
+                    dados_tabela = [["DATA", "MEMBRO / DESCRIÇÃO", "DÍZIMO", "OFERTA", "SAIDA", "RESPONSÁVEL"]]
                     
                     for _, row in self.dados_filtrados_backup.iterrows():
                         v_d = f"R$ {row['Dizimo_Val']:,.2f}".replace('.',',') if row['Dizimo_Val'] > 0 else "-"
                         v_o = f"R$ {row['Oferta_Val']:,.2f}".replace('.',',') if row['Oferta_Val'] > 0 else "-"
+                        v_s = f"R$ {row['Oferta_Val_saida']:,.2f}".replace('.',',') if row['Oferta_Val_saida'] > 0 else "-"
                         
                         dados_tabela.append([
                             row['Data'][:10], 
                             row['Nome'].upper()[:30], 
-                            v_d, v_o, 
+                            v_d, v_o, v_s,
                             row['Resp'].split()[0] # Apenas primeiro nome do resp.
                         ])
 
-                    # Configuração visual da tabela
-                    t = Table(dados_tabela, colWidths=[70, 210, 80, 80, 80])
+                    # Configuração visual da tabela    [60, 195, 75, 75, 75, 55]
+                    t = Table(dados_tabela, colWidths=[70, 150, 70, 70, 70,90])
                     t.setStyle(TableStyle([
                         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                         ('FONTSIZE', (0, 0), (-1, 0), 10),

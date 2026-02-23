@@ -5,19 +5,5 @@
         "adm": "Sistema",
         "data_criacao": "21/02/2026",
         "hora_criacao": "23:58:15"
-    },
-    "daniel novais": {
-        "senha": "2026@Da",
-        "funcao": "Usuario",
-        "adm": "ADMINISTRADOR",
-        "data_criacao": "22/02/2026",
-        "hora_criacao": "17:18:33"
-    },
-    "mercedes": {
-        "senha": "ME2026##",
-        "funcao": "Administrador",
-        "adm": "ADMINISTRADOR",
-        "data_criacao": "22/02/2026",
-        "hora_criacao": "17:32:22"
     }
 }

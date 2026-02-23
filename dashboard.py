@@ -14,7 +14,7 @@ class DashboardFrame(ctk.CTkFrame):
         self.user = getattr(parent, 'user', 'Convidado')
         self.funcao = getattr(parent, 'funcao', 'usuario') # Agora o Dashboard tem 'self.funcao'
         
-        self.lista_viva = parent.cadastrados_sessao
+        #self.lista_viva = parent.cadastrados_sessao
         self.df_completo = pd.DataFrame()
 
         self.style = ttk.Style()
@@ -91,7 +91,7 @@ class DashboardFrame(ctk.CTkFrame):
         self.lbl_recents.pack(pady=(20, 5), anchor="w")
 
         # --- TABELA ---
-        columns = ("Data", "Nome", "Dízimo", "Oferta", "Observações", "Responsável")
+        columns = ("Data", "Nome", "Dízimo", "Oferta", "Saidas", "Observações", "Responsável")
         
         self.tree_frame = ctk.CTkFrame(self, corner_radius=10, fg_color="#2b2b2b")
         self.tree_frame.pack(fill="both", expand=True, padx=2, pady=2)
@@ -103,12 +103,12 @@ class DashboardFrame(ctk.CTkFrame):
 
         for col in columns:
             self.tree.heading(col, text=col.upper())
-            if col in ["Dízimo", "Oferta"]:
-                self.tree.column(col, width=100, anchor="center")
-            elif col == "Data":
+            if col in ["Dízimo", "Oferta", "Saidas"]:
+                self.tree.column(col, width=70, anchor="center")
+            elif col == ["Data", "Nome"]:
                 self.tree.column(col, width=100, anchor="center")
             else:
-                self.tree.column(col, width=150, anchor="w")
+                self.tree.column(col, width=130, anchor="w")
 
         self.tree.pack(side="left", fill="both", expand=True)
         
@@ -136,11 +136,13 @@ class DashboardFrame(ctk.CTkFrame):
                 for _, row in df_t.iterrows():
                     vd = self.limpar_valor(row.get('Dizimos', 0))
                     vo = self.limpar_valor(row.get('Ofertas', 0))
+                    vs = self.limpar_valor(row.get('Saidas', 0))
                     dados_misturados.append({
                         'Data': str(row.get('Data_Criacao', '-')),
                         'Nome': str(row.get('Nome', '-')),
                         'Dizimo_Val': vd,
                         'Oferta_Val': vo,
+                        'Oferta_Val_saida': vs,
                         'Obs': str(row.get('Outros', '')).replace('nan', ''),
                         'Resp': str(row.get('Responsavel', '')).replace('nan', ''),
                         'Timestamp': pd.to_datetime(row.get('Data_Criacao'), dayfirst=True, errors='coerce')
@@ -152,11 +154,13 @@ class DashboardFrame(ctk.CTkFrame):
                 df_o = pd.read_excel(file_offers)
                 for _, row in df_o.iterrows():
                     val = self.limpar_valor(row.get('Valor', 0))
+                    val_s = self.limpar_valor(row.get('Valor_Saida', 0))
                     dados_misturados.append({
                         'Data': str(row.get('Data', '-')),
                         'Nome': f"CULTO: {row.get('Dia_Culto', '-')}",
                         'Dizimo_Val': 0.0,
                         'Oferta_Val': val,
+                        'Oferta_Val_saida': val_s, ##### Averiguar essa lilha de codigo se não funcionar
                         'Obs': str(row.get('Observacao', '')).replace('nan', ''),
                         'Resp': str(row.get('Responsavel', '')).replace('nan', ''), 
                         'Timestamp': pd.to_datetime(row.get('Data'), dayfirst=True, errors='coerce')
@@ -206,11 +210,12 @@ class DashboardFrame(ctk.CTkFrame):
         for i, (_, row) in enumerate(df_filtrado.iterrows()):
             d_txt = f"R$ {row['Dizimo_Val']:,.2f}".replace('.', 'X').replace(',', '.').replace('X', ',') if row['Dizimo_Val'] > 0 else "---"
             o_txt = f"R$ {row['Oferta_Val']:,.2f}".replace('.', 'X').replace(',', '.').replace('X', ',') if row['Oferta_Val'] > 0 else "---"
+            s_txt = f"R$ {row['Oferta_Val_saida']:,.2f}".replace('.', 'X').replace(',', '.').replace('X', ',') if row['Oferta_Val_saida'] > 0 else "---"
             
             tag = 'evenrow' if i % 2 == 0 else 'oddrow'
             
             self.tree.insert("", "end", values=(
-                row['Data'], row['Nome'], d_txt, o_txt, row['Obs'], row['Resp']
+                row['Data'], row['Nome'], d_txt, o_txt, s_txt, row['Obs'], row['Resp']
             ), tags=(tag,))
         
         self.atualizar_cards(df_filtrado)
@@ -226,6 +231,7 @@ class DashboardFrame(ctk.CTkFrame):
         
         total_d = df['Dizimo_Val'].sum()
         total_o = df['Oferta_Val'].sum()
+        total_s = df['Oferta_Val_saida'].sum()
         
         def br_money(v):
             return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -233,4 +239,5 @@ class DashboardFrame(ctk.CTkFrame):
         self.criar_card("Lançamentos", str(len(df)), "#50fa7b").pack(side="left", padx=5, expand=True, fill="both")
         self.criar_card("Total Dízimos", br_money(total_d), "#8be9fd").pack(side="left", padx=5, expand=True, fill="both")
         self.criar_card("Total Ofertas", br_money(total_o), "#f1fa8c").pack(side="left", padx=5, expand=True, fill="both")
-        self.criar_card("Volume Total", br_money(total_d + total_o), "#ff79c6").pack(side="left", padx=5, expand=True, fill="both")
+        self.criar_card("Total Saidas", br_money(total_s), "#bd93f9").pack(side="left", padx=5, expand=True, fill="both") 
+        self.criar_card("Volume Total", br_money(total_d + total_o - total_s), "#ff79c6").pack(side="left", padx=5, expand=True, fill="both")
