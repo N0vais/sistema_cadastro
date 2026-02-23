@@ -62,44 +62,48 @@ def show_register_screen(root):
         for widget in [reg_user, reg_pass, reg_pass_confirm, reg_administrador]:
             widget.configure(border_color="#949494", border_width=1)
 
-        # 2. Coleta de dados dos inputs
-        user = reg_user.get().strip() # .strip() remove espaços vazios acidentais
+        # 2. Coleta de dados
+        user = reg_user.get().strip()
         func = funcao_var.get()
         pw = reg_pass.get()
         pwc = reg_pass_confirm.get()
         senha_adm_digitada = reg_administrador.get()
 
-            # --- NOVA VALIDAÇÃO DE COMPLEXIDADE DE SENHA ---
-        padrao_senha = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[#!@$%^&*]).{6,}$"
-
-        # 3. Validações de preenchimento básico
-        if not all([user, pw, senha_adm_digitada]):
-            error_label.configure(text="Preencha todos os campos!", text_color="#FF4B4B")
+        # --- VALIDAÇÕES RÍGIDAS (Se falhar aqui, o 'return' impede a gravação) ---
+        
+        if not all([user, pw, senha_adm_digitada]) or func == "Nível de Acesso":
+            error_label.configure(text="Preencha todos os campos obrigatórios!", text_color="#FF4B4B")
             return
+
+        # Validação de Complexidade de Senha
+        padrao_senha = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[#!@$%^&*]).{6,}$"
         if not re.match(padrao_senha, pw):
-            error_label.configure(
-                text="Senha fraca! Use: Maiúscula, Minúscula, Número e #", 
-                text_color="#FF4B4B")
+            error_label.configure(text="Senha fraca! Use: A, a, 1 e #", text_color="#FF4B4B")
             reg_pass.configure(border_color="#FF4B4B")
             return
 
         if pw != pwc:
-            error_label.configure(text="Senhas não conferem!", text_color="#FF4B4B")
-            reg_pass_confirm.configure(border_color="#FF4B4B", border_width=1)
+            error_label.configure(text="As senhas não coincidem!", text_color="#FF4B4B")
+            reg_pass_confirm.configure(border_color="#FF4B4B")
             return
 
-        # 4. Processamento de Dados (JSON)
+        # 4. Processamento de Dados
         try:
+            # Carregar banco de dados
+            if not os.path.exists(root.db_file):
+                with open(root.db_file, "w") as f:
+                    json.dump({}, f)
+
             with open(root.db_file, "r", encoding='utf-8') as f:
                 data = json.load(f)
             
-            # --- NOVA VERIFICAÇÃO: USUÁRIO JÁ EXISTE? ---
+            # Verificar se usuário já existe
             if user in data:
-                error_label.configure(text="Usuário já cadastrado!", text_color="#FF4B4B")
-                reg_user.configure(border_color="#FF4B4B", border_width=1)
+                error_label.configure(text="Este nome de usuário já existe!", text_color="#FF4B4B")
+                reg_user.configure(border_color="#FF4B4B")
                 return
 
-            # 5. Validação do Administrador
+            # 5. Validação do Administrador (Busca no Banco)
             nome_adm_autorizador = None
             funcao_adm_autorizador = None
             
@@ -110,15 +114,17 @@ def show_register_screen(root):
                     break
             
             if not nome_adm_autorizador:
-                error_label.configure(text="Senha de administrador inválida!", text_color="#FF4B4B")
-                reg_administrador.configure(border_color="#FF4B4B", border_width=1)
+                error_label.configure(text="Senha de ADM incorreta ou não encontrado!", text_color="#FF4B4B")
+                reg_administrador.configure(border_color="#FF4B4B")
                 return
 
-            # 6. Criar registro e salvar no JSON
+            # --- SÓ CHEGA AQUI SE TUDO ESTIVER 100% CORRETO ---
+            
             agora = datetime.now()
             data_f = agora.strftime("%d/%m/%Y")
             hora_f = agora.strftime("%H:%M:%S")
 
+            # Grava no Dicionário
             data[user] = {
                 "senha": pw, 
                 "funcao": func, 
@@ -127,28 +133,28 @@ def show_register_screen(root):
                 "hora_criacao": hora_f
             }
             
+            # Salva no arquivo JSON
             with open(root.db_file, "w", encoding='utf-8') as f:
                 json.dump(data, f, indent=4, ensure_ascii=False)
 
-            # 7. Sistema de Logs (CSV)
+            # --- 7. Sistema de Logs (Formato de Texto Puro para Dashboard) ---
             log_path = 'data/logs_sistema.csv'
             os.makedirs(os.path.dirname(log_path), exist_ok=True)
             
-            mensagem_log = f"{funcao_adm_autorizador} '{nome_adm_autorizador}' cadastrou o usuario '{user}' como '{func}'"
-            arquivo_existe = os.path.exists(log_path)
+            # Formato padronizado que você pediu: [Data Hora] Função - Nome: Ação
+            linha_log = f"[{data_f} {hora_f}] {funcao_adm_autorizador} {nome_adm_autorizador}: cadastrou o usuario '{user}' como '{func}'\n"
             
-            with open(log_path, 'a', newline='', encoding='utf-8') as f_log:
-                escritor = csv.writer(f_log)
-                if not arquivo_existe:
-                    escritor.writerow(["Data", "Hora", "Evento"])
-                escritor.writerow([data_f, hora_f, mensagem_log])
+            with open(log_path, 'a', encoding='utf-8') as f_log:
+                f_log.write(linha_log)
 
-            # 8. Finalização com sucesso
-            error_label.configure(text="Cadastro realizado com sucesso!", text_color="#00FF88")
-            root.after(1000, root.show_login_screen)
+            # 8. Feedback de Sucesso Final
+            error_label.configure(text="CADASTRO REALIZADO!", text_color="#00FF88")
+            root.after(1500, root.show_login_screen)
 
+        except json.JSONDecodeError:
+            error_label.configure(text="Erro crítico: Arquivo de banco corrompido!", text_color="#FF4B4B")
         except Exception as e:
-            error_label.configure(text=f"Erro: {e}", text_color="#FF4B4B")
+            error_label.configure(text=f"Erro inesperado: {e}", text_color="#FF4B4B")
     
 # Botao cadastrar
     ctk.CTkButton(frame, text="REGISTRAR",

@@ -1,7 +1,7 @@
 import customtkinter as ctk
 import pandas as pd
 import os
-from tkinter import messagebox, ttk
+from tkinter import ttk
 
 class DashboardFrame(ctk.CTkFrame):
     def __init__(self, parent):
@@ -10,6 +10,13 @@ class DashboardFrame(ctk.CTkFrame):
         self.df_completo = pd.DataFrame()
 
         # --- CONFIGURAÇÃO DE ESTILO MODERNO (TREEVIEW) ---
+        self.parent = parent
+        self.user = getattr(parent, 'user', 'Convidado')
+        self.funcao = getattr(parent, 'funcao', 'usuario') # Agora o Dashboard tem 'self.funcao'
+        
+        self.lista_viva = parent.cadastrados_sessao
+        self.df_completo = pd.DataFrame()
+
         self.style = ttk.Style()
         self.style.theme_use("default")
         
@@ -157,9 +164,31 @@ class DashboardFrame(ctk.CTkFrame):
             except Exception as e: print(f"Erro ofertas: {e}")
 
         if dados_misturados:
-            self.df_completo = pd.DataFrame(dados_misturados).sort_values(by='Timestamp', ascending=False)
-            self.filtrar_tabela()
+            df_temp = pd.DataFrame(dados_misturados).sort_values(by='Timestamp', ascending=False)
+            cargo_limpo = str(self.funcao).lower()
+            
+            
+            if "admin" in cargo_limpo:
+                self.df_completo = df_temp
+                print("DEBUG: Admin detectado. Mostrando tudo.")
+            else:
+                
+                # Usamos a referência que criamos no __init__
+                lista_sessao = getattr(self.parent, 'cadastrados_sessao', [])
+                
+                # 2. Convertemos o Timestamp do Excel para o MESMO formato da lista
+                # Usamos o formato brasileiro para bater com o que você salvou
+                df_temp['TS_STR'] = pd.to_datetime(df_temp['Timestamp']).dt.strftime('%d/%m/%Y %H:%M:%S')
+                
+                # 3. Filtramos
+                self.df_completo = df_temp[df_temp['TS_STR'].isin(lista_sessao)].copy()
+                
+                # Debug para confirmar a batida de dados
+                print(f"DEBUG Dashboard: Comparando {len(df_temp)} itens do Excel com {len(lista_sessao)} da sessão.")
+                print(f"Itens encontrados após filtro: {len(self.df_completo)}")
 
+            self.filtrar_tabela()
+    
     def filtrar_tabela(self):
         termo = self.entry_busca.get().lower()
         for item in self.tree.get_children(): self.tree.delete(item)

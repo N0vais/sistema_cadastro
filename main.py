@@ -127,6 +127,7 @@ class AdplatinaSystem(ctk.CTk):
             from home import SistemaTarefas
             self.withdraw()  # Oculta a tela de login
             
+               
             # Cria a nova janela
             app_home = SistemaTarefas(user=user, funcao=funcao)
             app_home.mainloop()

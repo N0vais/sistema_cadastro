@@ -6,6 +6,7 @@ from datetime import datetime
 from tkinter import messagebox, ttk
 from dashboard import DashboardFrame
 
+
 # Mock das funções de log caso o módulo externo não exista
 try:
     from registro_log import registrar_acao, buscar_ultimos_logs
@@ -26,6 +27,7 @@ class SistemaTarefas(ctk.CTk):
         self.user = user
         self.funcao = funcao
         self.hora_login = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        self.cadastrados_sessao = [] 
 
         # Configuração da Janela
         self.title("Sistema de Cadastro - V1.0.2026")
@@ -38,6 +40,8 @@ class SistemaTarefas(ctk.CTk):
 
         # Inicialização dos Componentes
         self.setup_sidebar()
+
+        self.aplicar_restricoes()
         
         # Inicialização dos Frames de Conteúdo
         self.main_frame = self.setup_main_frame()
@@ -137,6 +141,16 @@ class SistemaTarefas(ctk.CTk):
         self.btn_sair = ctk.CTkButton(self.container_usuario, text="Sair", fg_color="#cc0000", 
                                      hover_color="#990000", width=65, command=self.encerrar_sistema)
         self.btn_sair.pack(side="right", padx=5)
+
+    # função para desativar os campos de adm
+    def aplicar_restricoes(self):
+        # Verificamos a função que foi passada na inicialização
+        if self.funcao.lower() == "usuario":
+            # Desabilita os botões para nível usuário
+            self.btn_logs.configure(state="disabled")
+            self.btn_logs.pack_forget()
+            self.btn_imprimir_sidebar.configure(state="disabled")
+            self.btn_imprimir_sidebar.pack_forget()
 
     def setup_main_frame(self):
         frame = ctk.CTkFrame(self, corner_radius=15)
@@ -269,6 +283,9 @@ class SistemaTarefas(ctk.CTk):
             val_d_str = f"{val_d:.2f}".replace('.', ',')
             val_o_str = f"{val_o:.2f}".replace('.', ',')
 
+            agora = datetime.now()
+            data_string = agora.strftime("%d/%m/%Y %H:%M:%S")
+
             # Verificação de existência
             if os.path.exists(filename):
                 df_e = pd.read_excel(filename)
@@ -283,7 +300,7 @@ class SistemaTarefas(ctk.CTk):
                 'Dizimos': val_d_str,
                 'Ofertas': val_o_str,
                 'Outros': self.entry_outros.get(),
-                'Data_Criacao': datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                'Data_Criacao': data_string,
                 'Responsavel': self.user
             }])
 
@@ -292,6 +309,12 @@ class SistemaTarefas(ctk.CTk):
             else:
                 df_atual = pd.read_excel(filename)
                 pd.concat([df_atual, novo_reg], ignore_index=True).to_excel(filename, index=False)
+
+            # O Dashboard vai ler essa lista e filtrar apenas esses horários
+            self.cadastrados_sessao.append(data_string)
+
+            if hasattr(self, 'dash_frame'):
+                self.dash_frame.atualizar_dados()
 
             self.registrar_evento(f"Registrou Dizimo: {nome} (Total: R$ {total_formatado})")
             messagebox.showinfo("Sucesso", "Dados salvos com sucesso!")
@@ -316,7 +339,7 @@ class SistemaTarefas(ctk.CTk):
         if not hasattr(self, 'ofertas_frame'):
             self.setup_ofertas_frame()
         self.mostrar_tela(self.ofertas_frame)
-
+    # Tela de ofrtas
     def setup_ofertas_frame(self):
         """Frame de Cadastro de Ofertas com Validação de Dia"""
         self.ofertas_frame = ctk.CTkFrame(self, corner_radius=15)
@@ -339,6 +362,7 @@ class SistemaTarefas(ctk.CTk):
         self.combo_dia.set("--- CLIQUE PARA SELECIONAR ---") # Texto de instrução
 
         self.entry_oferta_val = self.create_input_valores(self.ofertas_frame, "Valor Arrecadado R$")
+        self.entry_oferta_val_saida = self.create_input_valores(self.ofertas_frame, "Valor de saida R$") #este campo e para valores de saida
         self.entry_obs_oferta = self.create_input_no_frame(self.ofertas_frame, "Observações Adicionais")
 
         # Botão Salvar
@@ -362,11 +386,13 @@ class SistemaTarefas(ctk.CTk):
             
             # 2. Formata para String padrão BR (123,45)
             valor_br = f"{valor_num:.2f}".replace('.', ',')
+
+            data_agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             
             filename = 'data/base_ofertas.xlsx'
             
             nova_oferta = pd.DataFrame([{
-                'Data': datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                'Data': data_agora,
                 'Dia_Culto': dia_selecionado,
                 'Valor': valor_br, # Salva formatado no Excel
                 'Observacao': self.entry_obs_oferta.get().strip(),
@@ -379,6 +405,10 @@ class SistemaTarefas(ctk.CTk):
             else:
                 df_existente = pd.read_excel(filename)
                 pd.concat([df_existente, nova_oferta], ignore_index=True).to_excel(filename, index=False)
+
+            self.cadastrados_sessao.append(data_agora)
+            if hasattr(self, 'cadastrados_sessao'):
+                self.cadastrados_sessao.append(data_agora)
 
             # 3. Registro de Log formatado (Sem os erros de casas decimais infinitas)
             registrar_acao(
@@ -599,6 +629,7 @@ class SistemaTarefas(ctk.CTk):
                     
                 except Exception as e:
                     messagebox.showerror("Erro", f"Falha ao gerar design: {e}")
+
 if __name__ == "__main__":
     app = SistemaTarefas()
     app.mainloop()
